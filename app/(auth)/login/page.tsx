@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -37,6 +37,14 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
+  );
+}
+
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") || "/dashboard";
@@ -44,6 +52,14 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDemoRole, setSelectedDemoRole] = useState<string>("");
   const [isDemoLoading, setIsDemoLoading] = useState(false);
+
+  // Show error from auth callback failures
+  useEffect(() => {
+    const error = searchParams.get("error");
+    if (error === "auth_callback_failed") {
+      toast.error("Authentication failed. Please sign in again.");
+    }
+  }, [searchParams]);
 
   const {
     register,

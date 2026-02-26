@@ -13,14 +13,14 @@ import {
   DEMO_NUMBER_SERIES,
 } from "@/lib/seed/demo-data";
 
-// Use service role key for admin operations
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
-
 export async function POST() {
+  // Use service role key for admin operations (created inside handler to avoid build-time env errors)
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+
   try {
     // 1. Create demo company
     const { error: companyError } = await supabaseAdmin

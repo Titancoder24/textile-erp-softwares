@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, ChevronRight, ChevronLeft, Building2, User } from "lucide-react";
+import { Loader2, ChevronRight, ChevronLeft, Building2, User, Mail, CheckCircle } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -53,23 +53,13 @@ const adminSchema = z
 type CompanyFormValues = z.infer<typeof companySchema>;
 type AdminFormValues = z.infer<typeof adminSchema>;
 
-const DEFAULT_NUMBER_SERIES = [
-  { prefix: "ORD", module: "orders", next_number: 1 },
-  { prefix: "INQ", module: "inquiries", next_number: 1 },
-  { prefix: "SMP", module: "samples", next_number: 1 },
-  { prefix: "LD", module: "lab_dips", next_number: 1 },
-  { prefix: "PO", module: "purchase_orders", next_number: 1 },
-  { prefix: "GRN", module: "grn", next_number: 1 },
-  { prefix: "WO", module: "work_orders", next_number: 1 },
-  { prefix: "QC", module: "quality_checks", next_number: 1 },
-  { prefix: "SHP", module: "shipments", next_number: 1 },
-];
-
 export default function SetupPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [companyData, setCompanyData] = useState<CompanyFormValues | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] = useState(false);
+  const [confirmEmail, setConfirmEmail] = useState("");
 
   const companyForm = useForm<CompanyFormValues>({
     resolver: zodResolver(companySchema),
@@ -114,6 +104,7 @@ export default function SetupPage() {
           data: {
             full_name: values.fullName,
           },
+          emailRedirectTo: `${window.location.origin}/api/auth/callback?next=/dashboard`,
         },
       });
 
@@ -127,63 +118,92 @@ export default function SetupPage() {
 
       const userId = authData.user.id;
 
-      // Step 2: Insert company record
-      const { data: company, error: companyError } = await supabase
-        .from("companies")
-        .insert({
-          name: companyData.companyName,
+      // Check if email confirmation is required (no session means unconfirmed)
+      const needsConfirmation = !authData.session;
+
+      // Step 2: Create company, profile, and number series via API route
+      // This uses the admin client server-side to bypass RLS for initial setup
+      const setupRes = await fetch("/api/setup/company", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          email: values.email,
+          fullName: values.fullName,
+          companyName: companyData.companyName,
           city: companyData.city,
           country: companyData.country,
-          default_currency: "USD",
-          financial_year_start: 1,
-        })
-        .select("id")
-        .single();
-
-      if (companyError) {
-        throw new Error("Failed to create company record: " + companyError.message);
-      }
-
-      const companyId = company.id;
-
-      // Step 3: Insert profile with super_admin role
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: userId,
-        company_id: companyId,
-        full_name: values.fullName,
-        email: values.email,
-        role: "super_admin",
-        is_active: true,
+        }),
       });
 
-      if (profileError) {
-        throw new Error("Failed to create user profile: " + profileError.message);
+      const setupResult = await setupRes.json();
+
+      if (!setupRes.ok) {
+        throw new Error(setupResult.error || "Failed to set up company");
       }
 
-      // Step 4: Insert default number series records
-      const numberSeriesInserts = DEFAULT_NUMBER_SERIES.map((series) => ({
-        ...series,
-        company_id: companyId,
-      }));
-
-      const { error: seriesError } = await supabase
-        .from("number_series")
-        .insert(numberSeriesInserts);
-
-      if (seriesError) {
-        // Non-fatal: log but don't block setup
-        console.warn("Failed to insert number series:", seriesError.message);
+      if (needsConfirmation) {
+        // Email confirmation required - show check-email screen
+        setConfirmEmail(values.email);
+        setPendingConfirmation(true);
+      } else {
+        // Auto-confirmed (e.g. dev mode or Supabase setting) - go to dashboard
+        toast.success("Company setup complete. Welcome to TextileOS!");
+        router.push("/dashboard");
+        router.refresh();
       }
-
-      toast.success("Company setup complete. Welcome to TextileOS!");
-      router.push("/dashboard");
-      router.refresh();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Setup failed. Please try again.";
       toast.error(message);
       setIsSubmitting(false);
     }
+  }
+
+  // Email confirmation pending screen
+  if (pendingConfirmation) {
+    return (
+      <Card className="w-full shadow-xl border-gray-200/80">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-2xl font-bold tracking-tight text-gray-900">
+            TextileOS
+          </CardTitle>
+          <CardDescription className="text-sm text-gray-500">
+            The Textile Industry&apos;s Operating System
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex flex-col items-center text-center space-y-3 py-6">
+            <div className="w-14 h-14 rounded-full bg-green-50 flex items-center justify-center">
+              <CheckCircle className="h-7 w-7 text-green-600" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Company created successfully
+              </h3>
+              <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+                <Mail className="h-4 w-4" />
+                <span>Confirm your email to get started</span>
+              </div>
+              <p className="text-sm text-gray-500 max-w-xs">
+                We sent a confirmation link to{" "}
+                <span className="font-medium text-gray-700">{confirmEmail}</span>.
+                Click the link in the email to activate your account.
+              </p>
+            </div>
+            <p className="text-xs text-gray-400">
+              Didn&apos;t receive it? Check your spam folder or try signing up again.
+            </p>
+          </div>
+          <a
+            href="/login"
+            className="block text-center text-sm text-blue-600 hover:text-blue-700 hover:underline font-medium"
+          >
+            Go to sign in
+          </a>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (

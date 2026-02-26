@@ -39,7 +39,8 @@ export default function NotificationsPage() {
 
   const markAsRead = async (id: string) => {
     const supabase = createClient();
-    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from("notifications") as any).update({ is_read: true }).eq("id", id);
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
     );
@@ -51,8 +52,8 @@ export default function NotificationsPage() {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
-    await supabase
-      .from("notifications")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from("notifications") as any)
       .update({ is_read: true })
       .eq("user_id", user.id)
       .eq("is_read", false);

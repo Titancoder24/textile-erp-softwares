@@ -923,7 +923,7 @@ export default function SupplierScorecardPage() {
                 domain={[0, 10]}
               />
               <Tooltip
-                formatter={(value: number) => [`${value.toFixed(1)}%`, "Rejection Rate"]}
+                formatter={(value) => [`${Number(value).toFixed(1)}%`, "Rejection Rate"]}
                 contentStyle={{
                   fontSize: 12,
                   borderRadius: 8,

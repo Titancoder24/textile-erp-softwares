@@ -22,21 +22,29 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const { data: profile, error: profileError } = await supabase
+  const { data: profileData, error: profileError } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", user.id)
     .single();
 
-  if (profileError || !profile) {
+  if (profileError || !profileData) {
+    redirect("/login");
+  }
+
+  const profile = profileData as Profile;
+
+  // Block deactivated users
+  if (!profile.is_active) {
+    await supabase.auth.signOut();
     redirect("/login");
   }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
-      <Sidebar profile={profile as Profile} />
+      <Sidebar profile={profile} />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar profile={profile as Profile} />
+        <Topbar profile={profile} />
         <main className="flex-1 overflow-y-auto">
           <div className="p-6">{children}</div>
         </main>

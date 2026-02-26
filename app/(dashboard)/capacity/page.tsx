@@ -668,7 +668,7 @@ export default function CapacityPlanningPage() {
                     tickLine={false}
                   />
                   <Tooltip
-                    formatter={(value: number) => [`${value}%`, "Utilization"]}
+                    formatter={(value) => [`${value}%`, "Utilization"]}
                     contentStyle={{
                       fontSize: 12,
                       borderRadius: 8,
@@ -816,8 +816,8 @@ export default function CapacityPlanningPage() {
                   tickLine={false}
                 />
                 <Tooltip
-                  formatter={(value: number) => [
-                    `${(value / 1000).toFixed(0)}K pcs`,
+                  formatter={(value) => [
+                    `${(Number(value) / 1000).toFixed(0)}K pcs`,
                   ]}
                   contentStyle={{
                     fontSize: 12,

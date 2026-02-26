@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/types/database";
 import { FactoryOwnerDashboard } from "@/components/dashboards/factory-owner-dashboard";
 import { GeneralManagerDashboard } from "@/components/dashboards/general-manager-dashboard";
 import { ProductionManagerDashboard } from "@/components/dashboards/production-manager-dashboard";
@@ -22,14 +23,17 @@ export default async function DashboardPage() {
 
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
+  type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+
+  const { data: profileData } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", user.id)
     .single();
 
-  if (!profile) redirect("/login");
+  if (!profileData) redirect("/login");
 
+  const profile = profileData as Profile;
   const companyId = profile.company_id;
 
   switch (profile.role) {

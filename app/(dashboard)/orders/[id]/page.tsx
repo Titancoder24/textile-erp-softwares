@@ -197,11 +197,11 @@ export default function OrderDetailPage() {
   const sizeTotal = (size: string) =>
     order.colors.reduce(
       (sum, color) =>
-        sum + (order.colorSizeMatrix[color as keyof typeof order.colorSizeMatrix]?.[size] ?? 0),
+        sum + ((order.colorSizeMatrix as Record<string, Record<string, number>>)[color]?.[size] ?? 0),
       0
     );
   const colorTotal = (color: string) => {
-    const row = order.colorSizeMatrix[color as keyof typeof order.colorSizeMatrix];
+    const row = (order.colorSizeMatrix as Record<string, Record<string, number>>)[color];
     if (!row) return 0;
     return Object.values(row).reduce((sum, v) => sum + v, 0);
   };
@@ -422,9 +422,7 @@ export default function OrderDetailPage() {
                           className="px-3 py-2.5 text-center tabular-nums text-gray-700"
                         >
                           {(
-                            order.colorSizeMatrix[
-                              color as keyof typeof order.colorSizeMatrix
-                            ]?.[size] ?? 0
+                            (order.colorSizeMatrix as Record<string, Record<string, number>>)[color]?.[size] ?? 0
                           ).toLocaleString()}
                         </td>
                       ))}
