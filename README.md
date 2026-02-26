@@ -4,6 +4,8 @@
 
 TextileOS is a production-grade ERP system purpose-built for the garment and textile manufacturing industry. It replaces disconnected spreadsheets, WhatsApp threads, and legacy software with a single intelligent platform connecting every department — from merchandising to shipment, from the boardroom to the factory floor.
 
+**Production-ready**: Supports real user registration, email-verified onboarding, admin-managed team invitations, and full multi-tenant data isolation via Row Level Security.
+
 ---
 
 ## Why TextileOS?
@@ -140,7 +142,11 @@ textile-erp-softwares/
 │   │   ├── vendor/             # Supplier PO + payment portal
 │   │   └── buying-house/       # Multi-factory monitoring dashboard
 │   └── api/
-│       └── setup/seed-demo/    # One-call demo data seeding
+│       ├── auth/callback/      # Supabase auth code exchange (email confirm, password reset)
+│       ├── users/invite/       # Admin user invitation endpoint
+│       └── setup/
+│           ├── company/        # New company + admin profile creation (bypasses RLS)
+│           └── seed-demo/      # One-call demo data seeding
 ├── components/
 │   ├── ui/                     # 26 shadcn/ui base components
 │   ├── dashboards/             # 13 role-specific dashboard components
@@ -151,8 +157,13 @@ textile-erp-softwares/
 │   ├── orders/                 # Order status badge, progress tracker
 │   └── production/             # Line card, floor components
 ├── lib/
-│   ├── actions/                # 16 Server Action files, 80+ functions
-│   ├── supabase/               # Browser + server Supabase clients
+│   ├── actions/                # 16+ Server Action files, 80+ functions
+│   │   ├── users.ts            # User CRUD: list, role update, status toggle
+│   │   └── settings.ts         # Company settings: read + update
+│   ├── supabase/
+│   │   ├── client.ts           # Browser-side Supabase client
+│   │   ├── server.ts           # Server-side Supabase client (cookie-based)
+│   │   └── admin.ts            # Admin client (service role key, bypasses RLS)
 │   ├── seed/                   # Reproducible demo data (fixed UUIDs)
 │   ├── constants.ts            # Roles, nav items, status labels, all enums
 │   └── utils.ts                # cn(), formatCurrency(), formatDate()
@@ -212,6 +223,70 @@ http://localhost:3000
 ```
 
 Log in with any demo credential from the table above.
+
+---
+
+## Production User Onboarding
+
+TextileOS supports real user registration and team management beyond the demo data.
+
+### New Company Registration
+
+1. Navigate to `/setup` — the setup wizard collects company name, owner name, email, and password
+2. Supabase Auth creates the user account and sends an **email confirmation link**
+3. After email verification, the auth callback (`/api/auth/callback`) exchanges the code for a session
+4. The setup wizard calls `/api/setup/company` which uses the **admin client** (service role key) to:
+   - Create the `companies` record
+   - Create the `profiles` record with role `super_admin`
+   - Insert default `number_series` entries for all document types
+5. The user is redirected to their dashboard with full admin access
+
+### Inviting Team Members
+
+Admins (`super_admin`, `factory_owner`, `general_manager`) can invite users from the **Users** page:
+
+1. Click "Invite User" and fill in name, email, role, and department
+2. The `/api/users/invite` endpoint:
+   - Creates the auth user via `supabase.auth.admin.createUser()` with email pre-confirmed
+   - Creates the `profiles` record with the assigned role and company
+   - Sends a **password reset email** so the invited user can set their own password
+3. The invited user clicks the reset link, sets a password, and logs in
+
+### User Management
+
+From the Users page, admins can:
+- Search and filter users by role, status, or department
+- Change a user's role (dropdown with all 14 internal roles)
+- Deactivate/reactivate users (deactivated users are signed out and blocked at the dashboard layout level)
+
+### Company Settings
+
+The Settings > General page allows admins to update:
+- Company name, contact info, website
+- Tax identifiers (GST, PAN)
+- Address and location
+- Financial year start month and default currency
+
+Non-admin users see these settings in read-only mode.
+
+### API Routes
+
+| Route | Method | Purpose |
+|---|---|---|
+| `/api/auth/callback` | GET | Exchanges Supabase auth code for session (email confirm, password reset) |
+| `/api/setup/company` | POST | Creates company + admin profile + number series (uses admin client) |
+| `/api/users/invite` | POST | Creates auth user + profile, sends password reset email |
+| `/api/setup/seed-demo` | POST | Seeds complete demo factory data |
+
+### Environment Variables
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key   # Required for user invitations and company setup
+```
+
+> **Important**: The `SUPABASE_SERVICE_ROLE_KEY` is required for production. It powers the admin client used by the invitation system and company setup flow to bypass RLS policies. Never expose this key to the browser — it is only used in server-side API routes.
 
 ---
 
@@ -373,12 +448,35 @@ PageHeader (title + description + action buttons)
               └── ConfirmDialog (delete with confirmation)
 ```
 
+### Admin Client (Privileged Operations)
+
+For operations that need to bypass RLS (user creation, company setup), use the admin client:
+
+```typescript
+// lib/supabase/admin.ts — server-side only, never import in client components
+import { createAdminClient } from "@/lib/supabase/admin";
+
+const supabaseAdmin = createAdminClient();
+await supabaseAdmin.auth.admin.createUser({ email, password, email_confirm: true });
+```
+
+### Authentication Flow
+
+```
+Sign Up → Email Confirmation → /api/auth/callback → Setup Wizard → Dashboard
+Invitation → Password Reset Email → /api/auth/callback → Login → Dashboard
+Login → Supabase Auth → Middleware Check → Dashboard (role-filtered)
+```
+
+The middleware (`middleware.ts`) refreshes the session on every request. The dashboard layout verifies the user has an active profile and blocks deactivated accounts.
+
 ### Naming Conventions
 
 - Pages: `app/(dashboard)/[module]/page.tsx`
 - Server Actions: `lib/actions/[module].ts`
 - Dashboard Components: `components/dashboards/[role]-dashboard.tsx`
 - Form Components: `components/forms/[module]/[entity]-form.tsx`
+- API Routes: `app/api/[domain]/route.ts`
 
 ---
 
@@ -423,9 +521,11 @@ CMD ["npm", "start"]
 | Total modules | 30 |
 | Database tables | 50+ |
 | RLS policies | 100+ |
-| Server Action files | 16 |
-| Server Action functions | 80+ |
+| API routes | 4 |
+| Server Action files | 18 |
+| Server Action functions | 85+ |
 | Role-specific dashboards | 13 |
+| Internal + portal roles | 14 + 3 |
 | Demo user accounts | 16 |
 | Total source files | 200+ |
 | Lines of code | ~60,000 |
@@ -434,6 +534,10 @@ CMD ["npm", "start"]
 
 ## Roadmap
 
+- [x] Real user registration with email verification
+- [x] Admin user invitation with password reset flow
+- [x] Production-ready user management (role changes, deactivation)
+- [x] Live company settings management
 - [ ] Mobile app (React Native) for shop-floor supervisors
 - [ ] Push notifications for delays, quality failures, PO approvals
 - [ ] AI demand forecasting and style recommendation
