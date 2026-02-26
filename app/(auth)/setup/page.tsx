@@ -54,15 +54,15 @@ type CompanyFormValues = z.infer<typeof companySchema>;
 type AdminFormValues = z.infer<typeof adminSchema>;
 
 const DEFAULT_NUMBER_SERIES = [
-  { prefix: "ORD", module: "orders", next_number: 1 },
-  { prefix: "INQ", module: "inquiries", next_number: 1 },
-  { prefix: "SMP", module: "samples", next_number: 1 },
-  { prefix: "LD", module: "lab_dips", next_number: 1 },
-  { prefix: "PO", module: "purchase_orders", next_number: 1 },
-  { prefix: "GRN", module: "grn", next_number: 1 },
-  { prefix: "WO", module: "work_orders", next_number: 1 },
-  { prefix: "QC", module: "quality_checks", next_number: 1 },
-  { prefix: "SHP", module: "shipments", next_number: 1 },
+  { prefix: "ORD", document_type: "orders", current_sequence: 0 },
+  { prefix: "INQ", document_type: "inquiries", current_sequence: 0 },
+  { prefix: "SMP", document_type: "samples", current_sequence: 0 },
+  { prefix: "LD", document_type: "lab_dips", current_sequence: 0 },
+  { prefix: "PO", document_type: "purchase_orders", current_sequence: 0 },
+  { prefix: "GRN", document_type: "grn", current_sequence: 0 },
+  { prefix: "WO", document_type: "work_orders", current_sequence: 0 },
+  { prefix: "QC", document_type: "quality_checks", current_sequence: 0 },
+  { prefix: "SHP", document_type: "shipments", current_sequence: 0 },
 ];
 
 export default function SetupPage() {

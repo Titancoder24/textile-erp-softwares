@@ -91,7 +91,7 @@ Navigation items are filtered by role using `NAV_ITEMS` array in constants.ts.
 
 ## Important Notes
 
-- Supabase project URL: https://vyaaxrylczgiginhqhft.supabase.co
+- Supabase project URL: https://imnbmnigxuceapgfyhfm.supabase.co
 - Database schema must be applied via SQL Editor (supabase/schema.sql)
 - Demo data seeded via /api/setup/seed-demo endpoint
 - All document numbers auto-generated via `get_next_number()` PostgreSQL function
